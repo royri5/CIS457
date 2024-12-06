@@ -1,0 +1,74 @@
+-----  Stop and Wait Network Simulator Version 1.1 -------- 
+
+Enter the number of messages to simulate: 10
+Enter packet loss probability [enter 0.0 for no loss]: 0.1
+Enter packet corruption probability [0.0 for no corruption]: 0
+Enter average time between messages from sender's application layer [ > 0.0]: 100
+Enter Debug Level (0:off, 1:less, 2:more, >2:most): 1
+Sender A has a message aaaaaaaaaaaaaaaaaaaa
+A: Sent pkt with seq: 0
+B: Sent ACK sent with acknum: 0
+B: msg forwarded to application layer: aaaaaaaaaaaaaaaaaaa
+A: Received ACK with acknum: 0
+Sender A has a message bbbbbbbbbbbbbbbbbbbb
+A: Sent pkt with seq: 1
+B: Sent ACK sent with acknum: 1
+B: msg forwarded to application layer: bbbbbbbbbbbbbbbbbbb
+A: Received ACK with acknum: 1
+Sender A has a message cccccccccccccccccccc
+A: Sent pkt with seq: 2
+		From B TO_NETWORK_LAYER: packet being lost 
+B: Sent ACK sent with acknum: 2
+B: msg forwarded to application layer: ccccccccccccccccccc
+A: Timeout
+A: Resent pkt with seq: 2
+B: Received pkt: 2 Out of order
+B: Sent ACK sent with acknum: 2
+A: Received ACK with acknum: 2
+Sender A has a message dddddddddddddddddddd
+A: Sent pkt with seq: 3
+B: Sent ACK sent with acknum: 3
+B: msg forwarded to application layer: ddddddddddddddddddd
+A: Received ACK with acknum: 3
+Sender A has a message eeeeeeeeeeeeeeeeeeee
+A: Sent pkt with seq: 0
+B: Sent ACK sent with acknum: 0
+B: msg forwarded to application layer: eeeeeeeeeeeeeeeeeee
+A: Received ACK with acknum: 0
+Sender A has a message ffffffffffffffffffff
+A: Sent pkt with seq: 1
+B: Sent ACK sent with acknum: 1
+B: msg forwarded to application layer: fffffffffffffffffff
+A: Received ACK with acknum: 1
+Sender A has a message gggggggggggggggggggg
+A: Sent pkt with seq: 2
+B: Sent ACK sent with acknum: 2
+B: msg forwarded to application layer: ggggggggggggggggggg
+A: Received ACK with acknum: 2
+Sender A has a message hhhhhhhhhhhhhhhhhhhh
+A: Sent pkt with seq: 3
+		From B TO_NETWORK_LAYER: packet being lost 
+B: Sent ACK sent with acknum: 3
+B: msg forwarded to application layer: hhhhhhhhhhhhhhhhhhh
+Sender A has a message iiiiiiiiiiiiiiiiiiii
+A: Timeout
+A: Resent pkt with seq: 3
+B: Received pkt: 3 Out of order
+		From B TO_NETWORK_LAYER: packet being lost hhhhhhhhhhhhhhhhhhh
+B: Sent ACK sent with acknum: 3
+A: Timeout
+A: Resent pkt with seq: 3
+B: Received pkt: 3 Out of order
+B: Sent ACK sent with acknum: 3
+A: Received ACK with acknum: 3
+A: Sent pkt with seq: 0
+B: Sent ACK sent with acknum: 0
+B: msg forwarded to application layer: iiiiiiiiiiiiiiiiiii
+A: Received ACK with acknum: 0
+Sender A has a message jjjjjjjjjjjjjjjjjjjj
+A: Sent pkt with seq: 1
+B: Sent ACK sent with acknum: 1
+B: msg forwarded to application layer: jjjjjjjjjjjjjjjjjjj
+A: Received ACK with acknum: 1
+ Simulator terminated at time 1059.887573
+ after sending 10 msgs from app layer
