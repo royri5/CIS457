@@ -38,7 +38,7 @@ def checksum(sdata):
 
 # here we go baby, this is where the magic happens
 # looks for a reply on socket, 
-def receiveOnePing(mySocket, ID, timeout, destAddr): # TODO: print error message when host is unknown, report timeout, report warning when recieving foreign ICMP packets
+def receiveOnePing(mySocket, ID, timeout, destAddr, expected_seq): # TODO: print error message when host is unknown, report timeout, report warning when recieving foreign ICMP packets
   timeLeft = timeout
   # holder vars
   remote_ip = None
@@ -57,7 +57,8 @@ def receiveOnePing(mySocket, ID, timeout, destAddr): # TODO: print error message
       if timeLeft <= 0:
         # TASK: ADDING SEQUENCE NUMBERS
         # make sure to print what seq num timed out, use data from pkt to get seq num
-        print ("Timeout")
+        
+        print(f"Request timeout for icmp_seq {expected_seq}")
         return None   # timeout
     else:
       timeReceived = time()
@@ -77,7 +78,7 @@ def receiveOnePing(mySocket, ID, timeout, destAddr): # TODO: print error message
       # check if the packet is ours
       pid = icmp_header[3]
       if pid != ID:
-        print(f"Foreign ICMP packet with PID {pid[0]} received")
+        print(f"Foreign ICMP packet with PID {pid} received")
         continue
       # cool, confirmed it's ours, let's get the data
       #remote_ip = addr[0]
@@ -146,7 +147,7 @@ def receiveOnePing(mySocket, ID, timeout, destAddr): # TODO: print error message
 
 # this func sends the packet, don't really need to do much
 # TASK: ADDING SEQUENCE NUMBERS
-def sendOnePing(mySocket, destAddr, ID, seq_num): # TODO: modify how seq is handled for packet loss detection, accept seq num as arg
+def sendOnePing(mySocket, destAddr, ID, seq_num): # TODO: 
   
   # ICMP header fields: 
   #    type      (1 byte) 
@@ -172,20 +173,20 @@ def sendOnePing(mySocket, destAddr, ID, seq_num): # TODO: modify how seq is hand
 # this handles the network stuff, don't need to mess with that
 # but it also provides an entry point to our other two ping functions
 # and it can be used in our prints to show rtt
-def doOnePing(destAddr, timeout, seq_num): # TODO: modify how sendoneping is called for seq nums, modify how doOnePing is called for seq nums
+def doOnePing(destAddr, timeout, seq_num): # TODO: 
   icmp = getprotobyname("icmp")
   mySocket = socket(AF_INET, SOCK_RAW, icmp)
   # Use the lowest 16-bit of the PID
   myID = getpid() & 0xFFFF
   # TASK: ADDING SEQUENCE NUMBERS
   sendOnePing(mySocket, destAddr, myID, seq_num)
-  rtt = receiveOnePing(mySocket, myID, timeout, destAddr)
+  rtt = receiveOnePing(mySocket, myID, timeout, destAddr, seq_num)
   mySocket.close()
   return rtt
 
 # basically just an entry point to do one ping that repeats 
 # and handles end of prog functionality
-def ping(host, timeout): # TODO: implement sequence numbers
+def ping(host, timeout): # TODO: 
   #holder vars
   num_pkts_transmitted = 0
   num_pkts_received = 0
@@ -193,7 +194,7 @@ def ping(host, timeout): # TODO: implement sequence numbers
   max_rtt = None
   avg_rtt = None
   rtt_arr = []
-  seq_num = 1 # zero or one first?
+  seq_num = 0 
   # interval arg functionality
   interval = 1
   if args.interval:
@@ -211,8 +212,6 @@ def ping(host, timeout): # TODO: implement sequence numbers
       if num_to_send is not None:
         if num_pkts_transmitted == num_to_send:
           break
-      # TASK: ADDING SEQUENCE NUMBERS
-      # modify call and implement seq nums
       rtt = doOnePing(dest, timeout, seq_num)
       seq_num += 1
       num_pkts_transmitted += 1
@@ -233,9 +232,16 @@ def ping(host, timeout): # TODO: implement sequence numbers
     pass
   finally:
     # calc avg rtt
-    avg_rtt = math.fsum(rtt_arr) / num_pkts_received
-    print(f"\n--- ping statistics ---")
-    print(f"{num_pkts_transmitted} packets transmitted\n{num_pkts_received} packets received\nMinimum Round Trip Time: {min_rtt:.4f} ms\nMaximum Round Trip Time: {max_rtt:.4f} ms\nAverage Round Trip Time: {avg_rtt:.4f} ms")
+    if num_pkts_received == 0:
+      avg_rtt = None
+      if num_pkts_transmitted == 0:
+        return
+      print(f"\n--- ping statistics ---")
+      print(f"{num_pkts_transmitted} packets transmitted\n{num_pkts_received} packets received\nMinimum Round Trip Time: {min_rtt} ms\nMaximum Round Trip Time: {max_rtt} ms\nAverage Round Trip Time: {avg_rtt} ms")
+    else:
+      avg_rtt = math.fsum(rtt_arr) / num_pkts_received
+      print(f"\n--- ping statistics ---")
+      print(f"{num_pkts_transmitted} packets transmitted\n{num_pkts_received} packets received\nMinimum Round Trip Time: {min_rtt:.4f} ms\nMaximum Round Trip Time: {max_rtt:.4f} ms\nAverage Round Trip Time: {avg_rtt:.4f} ms")
     return
   
 if __name__ == "__main__": # TODO:
@@ -249,5 +255,5 @@ if __name__ == "__main__": # TODO:
     print(f"Use {sys.argv[0]} hostname")
   else:
     # test printing for arguments
-    print(f"Interval: {args.interval}\nTimeout: {args.timeout}\nPackets: {args.packets}")
+    #print(f"Interval: {args.interval}\nTimeout: {args.timeout}\nPackets: {args.packets}")
     ping(sys.argv[1], timeout)
