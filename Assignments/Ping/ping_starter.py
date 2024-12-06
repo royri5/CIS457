@@ -12,6 +12,7 @@ parser.add_argument("-i", "--interval", help="Set the interval between sending p
 parser.add_argument("-t", "--timeout", help="Set the timeout for waiting for a reply to TIMEOUT seconds", type=float)
 parser.add_argument("-n", "--packets", help="Stop after sending PACKETS packets", type=int)
 args = parser.parse_args()
+import math
 
 ICMP_ECHO_REQUEST = 8
 
@@ -59,20 +60,66 @@ def receiveOnePing(mySocket, ID, timeout, destAddr): # TODO: print regular info/
         print ("Timeout")
         return None   # timeout
     else:
+      timeReceived = time()
+      # if it is not ours, we still have to keep going NO IDEA IF THIS SHOULD BE HERE vvv
+      timeLeft = timeLeft - howLongInSelect
+
+      recPacket,addr = mySocket.recvfrom(1024)
+
+      ## Fetch the IP header fields
+      # ip header contains ttl 8 bytes in, it is 1 byte long
+      ip_header = unpack_from("b", recPacket, 8)
+      #ttl = ttl[0] # untuple it
+      
+      ## Fetch the ICMP header fields
+      icmp_header = unpack_from("bbHHH", recPacket, 20)
+      
+      # check if the packet is ours
+      pid = icmp_header[3]
+      if pid != ID:
+        print(f"Foreign ICMP packet with PID {pid[0]} received")
+        continue
+      # cool, confirmed it's ours, let's get the data
+      #remote_ip = addr[0]
+      #icmp_seq = icmp_header[4]
+      #pid = icmp_header[3]
+      #ttl = ip_header[0]
+
+      #print(f"icmp_seq: {icmp_seq[0]}")
       # TASK: FOREIGN ICMP PACKETS
       # TODO: if pkt does not contain the proper pid, ignore it, use getpid() to compare
       # TODO: make sure to update timeLeft, maybe
-      # if 
+      # holder var
+      #my_pid = getpid()
+      #pkt_pid = None
       # timeLeft = timeLeft - howLongInSelect
       # continue
-      #
+
       break
   # CONTEXT: Wow! We just got a packet back! Let's see what's inside it!
   # just checkin how long it took to get here
-  timeReceived = time()
+  #timeReceived = time()
   # let's grab that packet and where it came from
-  recPacket,addr = mySocket.recvfrom(1024)
+  #recPacket,addr = mySocket.recvfrom(1024)
   ## BEGIN: your code
+  remote_ip = addr[0]
+
+  ## Fetch the IP header fields
+  # ip header contains ttl 8 bytes in, it is 1 byte long
+  #ip_header = unpack_from("b", recPacket, 8)
+  
+  ## Fetch the ICMP header fields
+  #icmp_header = unpack_from("bbHHH", recPacket, 20)
+
+  remote_ip = addr[0]
+  icmp_seq = icmp_header[4]
+  pid = icmp_header[3]
+  ttl = ip_header[0]
+  #rtt = 
+  payload = unpack_from("d", recPacket, 28)
+  # rtt in ms
+  rtt = (timeReceived - payload[0]) * 1000
+  #print(f"payload: {payload[0]}")
 
   # open your heart to your code
   # it doesn't need to be so cold...
@@ -84,16 +131,18 @@ def receiveOnePing(mySocket, ID, timeout, destAddr): # TODO: print regular info/
   # this is the section where the continuous printing of data is done and extracted
 
   ## Fetch the IP header fields
+  # ip header contains ttl, 
+  ip_header = recPacket[20:]
   ## Fetch the ICMP header fields
 
   # TASK: CALCULATING THE RTT
 
   # TASK: PRINT ROUTINE INFO (Remote IP address, ICMP sequence, TTL, and RTT)
-  print(f"reply from {remote_ip}: icmp_seq={icmp_seq} ttl={ttl} time={rtt} ms")
+  print(f"reply from {remote_ip}: icmp_seq={icmp_seq} ttl={ttl} time={rtt:.4f} ms")
   ## END: your code
 
   # TASK: RETURN RTT ONLY for summary later
-  return 0
+  return rtt
 
 # this func sends the packet, don't really need to do much
 # TASK: ADDING SEQUENCE NUMBERS
@@ -134,13 +183,14 @@ def doOnePing(destAddr, timeout): # TODO: modify how sendoneping is called for s
 
 # basically just an entry point to do one ping that repeats 
 # and handles end of prog functionality
-def ping(host, timeout): # TODO: implement args in func call, handle arguments here, implement sequence numbers, implement the summary when the prog ends here
+def ping(host, timeout): # TODO: implement sequence numbers, implement the summary when the prog ends here
   #holder vars
   num_pkts_transmitted = 0
-  num_pkts_received = None
+  num_pkts_received = 0
   min_rtt = None
   max_rtt = None
   avg_rtt = None
+  rtt_arr = []
   # interval arg functionality
   interval = 1
   if args.interval:
@@ -149,6 +199,7 @@ def ping(host, timeout): # TODO: implement args in func call, handle arguments h
   num_to_send = None
   if args.packets:
     num_to_send = args.packets
+
   try:
     dest = gethostbyname(host)
     print (f"PING {host} ({dest}) ")
@@ -159,8 +210,15 @@ def ping(host, timeout): # TODO: implement args in func call, handle arguments h
           break
       # TASK: ADDING SEQUENCE NUMBERS
       # modify call and implement seq nums
-      doOnePing(dest, timeout)
+      rtt = doOnePing(dest, timeout)
       num_pkts_transmitted += 1
+      if rtt is not None:
+        rtt_arr.append(rtt)
+        num_pkts_received += 1
+        if min_rtt is None or rtt < min_rtt:
+          min_rtt = rtt
+        if max_rtt is None or rtt > max_rtt:
+          max_rtt = rtt
       sleep(interval)
   except Exception as e:
     print(f"Exception: {e}")
@@ -173,14 +231,13 @@ def ping(host, timeout): # TODO: implement args in func call, handle arguments h
     #print(f"{num_pkts_transmitted} packets transmitted\n{num_pkts_received} packets received\nMinimum Round Trip Time: {min_rtt} ms\nMaximum Round Trip Time: {max_rtt} ms\nAverage Round Trip Time: {avg_rtt} ms")
     # TASK: SUMMARY INFO PRINT/calculation
   finally:
+    # calc avg rtt
+    avg_rtt = math.fsum(rtt_arr) / num_pkts_received
     print(f"\n--- ping statistics ---")
-    print(f"{num_pkts_transmitted} packets transmitted\n{num_pkts_received} packets received\nMinimum Round Trip Time: {min_rtt} ms\nMaximum Round Trip Time: {max_rtt} ms\nAverage Round Trip Time: {avg_rtt} ms")
+    print(f"{num_pkts_transmitted} packets transmitted\n{num_pkts_received} packets received\nMinimum Round Trip Time: {min_rtt:.4f} ms\nMaximum Round Trip Time: {max_rtt:.4f} ms\nAverage Round Trip Time: {avg_rtt:.4f} ms")
     return
   
-
-# probably will need to modify this to accept command line args and options
-# use a library, make sure to check the assignment tho
-if __name__ == "__main__": # TODO: ensure print is to spec for output OSX, implement passing command line args to ping for it to handle
+if __name__ == "__main__": # TODO:
   #holder vars
   # timeout arg functionality
   timeout = 1
