@@ -38,7 +38,7 @@ def checksum(sdata):
 
 # here we go baby, this is where the magic happens
 # looks for a reply on socket, 
-def receiveOnePing(mySocket, ID, timeout, destAddr): # TODO: print regular info/calculate rtt, print error message when host is unknown, report timeout, report warning when recieving foreign ICMP packets
+def receiveOnePing(mySocket, ID, timeout, destAddr): # TODO: print error message when host is unknown, report timeout, report warning when recieving foreign ICMP packets
   timeLeft = timeout
   # holder vars
   remote_ip = None
@@ -146,7 +146,7 @@ def receiveOnePing(mySocket, ID, timeout, destAddr): # TODO: print regular info/
 
 # this func sends the packet, don't really need to do much
 # TASK: ADDING SEQUENCE NUMBERS
-def sendOnePing(mySocket, destAddr, ID): # TODO: modify how seq is handled for packet loss detection, accept seq num as arg
+def sendOnePing(mySocket, destAddr, ID, seq_num): # TODO: modify how seq is handled for packet loss detection, accept seq num as arg
   
   # ICMP header fields: 
   #    type      (1 byte) 
@@ -158,32 +158,34 @@ def sendOnePing(mySocket, destAddr, ID): # TODO: modify how seq is handled for p
   # Make a dummy header with 0 checksum
   myChecksum = 0
   # TASK: ADDING SEQUENCE NUMBERS
-  header = pack("bbHHH", ICMP_ECHO_REQUEST, 0, myChecksum, ID, 1)
+  #header = pack("bbHHH", ICMP_ECHO_REQUEST, 0, myChecksum, ID, 1)
+  header = pack("bbHHH", ICMP_ECHO_REQUEST, 0, myChecksum, ID, seq_num)
   data = pack("d", time())
   # calculate the checksum on the header and dummy data
   myChecksum = checksum(header+data)
   # TASK: ADDING SEQUENCE NUMBERS
-  header = pack("bbHHH", ICMP_ECHO_REQUEST, 0, htons(myChecksum), ID, 1)
+  #header = pack("bbHHH", ICMP_ECHO_REQUEST, 0, htons(myChecksum), ID, 1)
+  header = pack("bbHHH", ICMP_ECHO_REQUEST, 0, htons(myChecksum), ID, seq_num)
   packet = header+data  
   mySocket.sendto(packet, (destAddr, 1))
 
 # this handles the network stuff, don't need to mess with that
 # but it also provides an entry point to our other two ping functions
 # and it can be used in our prints to show rtt
-def doOnePing(destAddr, timeout): # TODO: modify how sendoneping is called for seq nums, modify how doOnePing is called for seq nums
+def doOnePing(destAddr, timeout, seq_num): # TODO: modify how sendoneping is called for seq nums, modify how doOnePing is called for seq nums
   icmp = getprotobyname("icmp")
   mySocket = socket(AF_INET, SOCK_RAW, icmp)
   # Use the lowest 16-bit of the PID
   myID = getpid() & 0xFFFF
   # TASK: ADDING SEQUENCE NUMBERS
-  sendOnePing(mySocket, destAddr, myID)
+  sendOnePing(mySocket, destAddr, myID, seq_num)
   rtt = receiveOnePing(mySocket, myID, timeout, destAddr)
   mySocket.close()
   return rtt
 
 # basically just an entry point to do one ping that repeats 
 # and handles end of prog functionality
-def ping(host, timeout): # TODO: implement sequence numbers, implement the summary when the prog ends here
+def ping(host, timeout): # TODO: implement sequence numbers
   #holder vars
   num_pkts_transmitted = 0
   num_pkts_received = 0
@@ -191,6 +193,7 @@ def ping(host, timeout): # TODO: implement sequence numbers, implement the summa
   max_rtt = None
   avg_rtt = None
   rtt_arr = []
+  seq_num = 1 # zero or one first?
   # interval arg functionality
   interval = 1
   if args.interval:
@@ -210,7 +213,8 @@ def ping(host, timeout): # TODO: implement sequence numbers, implement the summa
           break
       # TASK: ADDING SEQUENCE NUMBERS
       # modify call and implement seq nums
-      rtt = doOnePing(dest, timeout)
+      rtt = doOnePing(dest, timeout, seq_num)
+      seq_num += 1
       num_pkts_transmitted += 1
       if rtt is not None:
         rtt_arr.append(rtt)
@@ -227,9 +231,6 @@ def ping(host, timeout): # TODO: implement sequence numbers, implement the summa
   except KeyboardInterrupt:
     # still want stats even if we go to completion with -n option
     pass
-    #print(f"\n--- ping statistics ---")
-    #print(f"{num_pkts_transmitted} packets transmitted\n{num_pkts_received} packets received\nMinimum Round Trip Time: {min_rtt} ms\nMaximum Round Trip Time: {max_rtt} ms\nAverage Round Trip Time: {avg_rtt} ms")
-    # TASK: SUMMARY INFO PRINT/calculation
   finally:
     # calc avg rtt
     avg_rtt = math.fsum(rtt_arr) / num_pkts_received
