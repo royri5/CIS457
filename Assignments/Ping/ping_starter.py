@@ -1,3 +1,4 @@
+# Author: Richard Roy
 from socket import gethostbyname, getprotobyname, socket, SOCK_RAW, AF_INET, htons, inet_ntoa
 from os import getpid
 import sys
@@ -16,7 +17,7 @@ import math
 
 ICMP_ECHO_REQUEST = 8
 
-# checksum, ignore it
+
 def checksum(sdata):
   csum = 0
   
@@ -36,11 +37,9 @@ def checksum(sdata):
   # Return the lowest 16 bits of the 1s complement   
   return ~csum & 0xFFFF
 
-# here we go baby, this is where the magic happens
-# looks for a reply on socket, 
-def receiveOnePing(mySocket, ID, timeout, destAddr, expected_seq): # TODO: print error message when host is unknown, report timeout, report warning when recieving foreign ICMP packets
+def receiveOnePing(mySocket, ID, timeout, destAddr, expected_seq):
   timeLeft = timeout
-  # holder vars
+  # holder vars for printing
   remote_ip = None
   icmp_seq = None
   ttl = None
@@ -55,24 +54,23 @@ def receiveOnePing(mySocket, ID, timeout, destAddr, expected_seq): # TODO: print
       timeLeft = timeLeft - howLongInSelect
       # this checks if we timed out
       if timeLeft <= 0:
-        # TASK: ADDING SEQUENCE NUMBERS
-        # make sure to print what seq num timed out, use data from pkt to get seq num
-        
         print(f"Request timeout for icmp_seq {expected_seq}")
         return None   # timeout
     else:
       timeReceived = time()
-      # if it is not ours, we still have to keep going NO IDEA IF THIS SHOULD BE HERE vvv
+      # if it is not ours, we still have to keep going and waiting for timeout
       timeLeft = timeLeft - howLongInSelect
 
       recPacket,addr = mySocket.recvfrom(1024)
 
       ## Fetch the IP header fields
-      # ip header contains ttl 8 bytes in, it is 1 byte long
+      # ip header contains just ttl, 8 bytes in, it is 1 byte long
       ip_header = unpack_from("b", recPacket, 8)
       #ttl = ttl[0] # untuple it
       
       ## Fetch the ICMP header fields
+      # icmp_header contains the whole header, but we only care about the sequence number
+      # and the pid
       icmp_header = unpack_from("bbHHH", recPacket, 20)
       
       # check if the packet is ours
@@ -80,74 +78,23 @@ def receiveOnePing(mySocket, ID, timeout, destAddr, expected_seq): # TODO: print
       if pid != ID:
         print(f"Foreign ICMP packet with PID {pid} received")
         continue
-      # cool, confirmed it's ours, let's get the data
-      #remote_ip = addr[0]
-      #icmp_seq = icmp_header[4]
-      #pid = icmp_header[3]
-      #ttl = ip_header[0]
-
-      #print(f"icmp_seq: {icmp_seq[0]}")
-      # TASK: FOREIGN ICMP PACKETS
-      # TODO: if pkt does not contain the proper pid, ignore it, use getpid() to compare
-      # TODO: make sure to update timeLeft, maybe
-      # holder var
-      #my_pid = getpid()
-      #pkt_pid = None
-      # timeLeft = timeLeft - howLongInSelect
-      # continue
 
       break
-  # CONTEXT: Wow! We just got a packet back! Let's see what's inside it!
-  # just checkin how long it took to get here
-  #timeReceived = time()
-  # let's grab that packet and where it came from
-  #recPacket,addr = mySocket.recvfrom(1024)
-  ## BEGIN: your code
-  remote_ip = addr[0]
 
-  ## Fetch the IP header fields
-  # ip header contains ttl 8 bytes in, it is 1 byte long
-  #ip_header = unpack_from("b", recPacket, 8)
-  
-  ## Fetch the ICMP header fields
-  #icmp_header = unpack_from("bbHHH", recPacket, 20)
-
+  # confirmed it's ours, let's get the data
   remote_ip = addr[0]
   icmp_seq = icmp_header[4]
-  pid = icmp_header[3]
   ttl = ip_header[0]
-  #rtt = 
+  # payload is the time we sent the packet
   payload = unpack_from("d", recPacket, 28)
   # rtt in ms
   rtt = (timeReceived - payload[0]) * 1000
-  #print(f"payload: {payload[0]}")
 
-  # open your heart to your code
-  # it doesn't need to be so cold...
+  print(f"Reply from {remote_ip}: icmp_seq={icmp_seq} ttl={ttl} time={rtt:.4f} ms")
 
-  # now that we have the packet, we have the assignment specified task to do
-  # TASK: EXTRACT THE IP AND ICMP DETAILS
-  # this segment of code primarily extracts the right IP or ICMP fields/values/data from the packet
-  # and prints them out
-  # this is the section where the continuous printing of data is done and extracted
-
-  ## Fetch the IP header fields
-  # ip header contains ttl, 
-  ip_header = recPacket[20:]
-  ## Fetch the ICMP header fields
-
-  # TASK: CALCULATING THE RTT
-
-  # TASK: PRINT ROUTINE INFO (Remote IP address, ICMP sequence, TTL, and RTT)
-  print(f"reply from {remote_ip}: icmp_seq={icmp_seq} ttl={ttl} time={rtt:.4f} ms")
-  ## END: your code
-
-  # TASK: RETURN RTT ONLY for summary later
   return rtt
 
-# this func sends the packet, don't really need to do much
-# TASK: ADDING SEQUENCE NUMBERS
-def sendOnePing(mySocket, destAddr, ID, seq_num): # TODO: 
+def sendOnePing(mySocket, destAddr, ID, seq_num):
   
   # ICMP header fields: 
   #    type      (1 byte) 
@@ -158,36 +105,26 @@ def sendOnePing(mySocket, destAddr, ID, seq_num): # TODO:
   
   # Make a dummy header with 0 checksum
   myChecksum = 0
-  # TASK: ADDING SEQUENCE NUMBERS
-  #header = pack("bbHHH", ICMP_ECHO_REQUEST, 0, myChecksum, ID, 1)
   header = pack("bbHHH", ICMP_ECHO_REQUEST, 0, myChecksum, ID, seq_num)
   data = pack("d", time())
   # calculate the checksum on the header and dummy data
   myChecksum = checksum(header+data)
-  # TASK: ADDING SEQUENCE NUMBERS
-  #header = pack("bbHHH", ICMP_ECHO_REQUEST, 0, htons(myChecksum), ID, 1)
   header = pack("bbHHH", ICMP_ECHO_REQUEST, 0, htons(myChecksum), ID, seq_num)
   packet = header+data  
   mySocket.sendto(packet, (destAddr, 1))
 
-# this handles the network stuff, don't need to mess with that
-# but it also provides an entry point to our other two ping functions
-# and it can be used in our prints to show rtt
-def doOnePing(destAddr, timeout, seq_num): # TODO: 
+def doOnePing(destAddr, timeout, seq_num):
   icmp = getprotobyname("icmp")
   mySocket = socket(AF_INET, SOCK_RAW, icmp)
   # Use the lowest 16-bit of the PID
   myID = getpid() & 0xFFFF
-  # TASK: ADDING SEQUENCE NUMBERS
   sendOnePing(mySocket, destAddr, myID, seq_num)
   rtt = receiveOnePing(mySocket, myID, timeout, destAddr, seq_num)
   mySocket.close()
   return rtt
 
-# basically just an entry point to do one ping that repeats 
-# and handles end of prog functionality
 def ping(host, timeout): # TODO: 
-  #holder vars
+  #holder vars for printing
   num_pkts_transmitted = 0
   num_pkts_received = 0
   min_rtt = None
@@ -195,11 +132,13 @@ def ping(host, timeout): # TODO:
   avg_rtt = None
   rtt_arr = []
   seq_num = 0 
+
   # interval arg functionality
   interval = 1
   if args.interval:
     interval = args.interval
-  # packets arg functionality
+
+  # packet count arg functionality
   num_to_send = None
   if args.packets:
     num_to_send = args.packets
@@ -208,13 +147,16 @@ def ping(host, timeout): # TODO:
     dest = gethostbyname(host)
     print (f"PING {host} ({dest}) ")
     while True:
-      # packets arg functionality
+
+      # packet count arg functionality
       if num_to_send is not None:
         if num_pkts_transmitted == num_to_send:
           break
+
       rtt = doOnePing(dest, timeout, seq_num)
       seq_num += 1
       num_pkts_transmitted += 1
+      # check if we have a new rtt to add to our stats (reply received)
       if rtt is not None:
         rtt_arr.append(rtt)
         num_pkts_received += 1
@@ -223,19 +165,23 @@ def ping(host, timeout): # TODO:
         if max_rtt is None or rtt > max_rtt:
           max_rtt = rtt
       sleep(interval)
+
   except Exception as e:
     print(f"Exception: {e}")
-    # MAYBE?? RETURN HERE??
     return
+  
   except KeyboardInterrupt:
-    # still want stats even if we go to completion with -n option
+    # still want stats even if we let it finish with -n option, so letting it fall through
     pass
+
   finally:
-    # calc avg rtt
+    # avoid division by zero/empty array
     if num_pkts_received == 0:
       avg_rtt = None
       if num_pkts_transmitted == 0:
+        # no packets sent, stats are misleading so omitted, triggered due to host not found
         return
+      # no packets received, so no rtt to calculate
       print(f"\n--- ping statistics ---")
       print(f"{num_pkts_transmitted} packets transmitted\n{num_pkts_received} packets received\nMinimum Round Trip Time: {min_rtt} ms\nMaximum Round Trip Time: {max_rtt} ms\nAverage Round Trip Time: {avg_rtt} ms")
     else:
@@ -245,7 +191,7 @@ def ping(host, timeout): # TODO:
     return
   
 if __name__ == "__main__": # TODO:
-  #holder vars
+  # holder vars
   # timeout arg functionality
   timeout = 1
   if args.timeout:
@@ -254,6 +200,6 @@ if __name__ == "__main__": # TODO:
   if len(sys.argv) < 2:
     print(f"Use {sys.argv[0]} hostname")
   else:
-    # test printing for arguments
+    # vvv test printing arguments for debugging/verifying cmd line args vvv
     #print(f"Interval: {args.interval}\nTimeout: {args.timeout}\nPackets: {args.packets}")
     ping(sys.argv[1], timeout)
