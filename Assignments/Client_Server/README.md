@@ -1,7 +1,7 @@
-**Author: **
+**Author:**
         Richard Roy + some provided code
 
-**Desc: **
+**Desc:**
         Separate client and server programs that interact and transport data between each other.
         In order to meet assignment specifications, the client sends a password to the server that
         meets some arbitrary specifications.
