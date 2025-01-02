@@ -1,5 +1,5 @@
-**Author:**
-        \nRichard Roy + some provided code
+**Author:**\n
+        Richard Roy + some provided code
 
 **Desc:**
         Separate client and server programs that interact and transport data between each other.
